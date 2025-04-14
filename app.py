@@ -4,6 +4,7 @@ import json
 import os
 from fractions import Fraction
 from io import BytesIO
+from typing import Callable, List, Tuple
 
 import numpy as np
 import openai
@@ -15,19 +16,19 @@ from dotenv import load_dotenv
 
 # === Setup ===
 
-def load_openai_key():
+def load_openai_key() -> None:
     load_dotenv()
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 # === Utility ===
 
-def format_fraction(value):
+def format_fraction(value: float) -> str:
     frac = Fraction(value).limit_denominator()
     return str(frac.numerator) if frac.denominator == 1 else f"{frac.numerator}/{frac.denominator}"
 
 
-def describe_row_op(i, r, factor):
+def describe_row_op(i: int, r: int, factor: float) -> str:
     factor_frac = format_fraction(factor)
     if factor_frac == "1":
         return f"R{i + 1} ← R{i + 1} - R{r + 1}"
@@ -39,8 +40,8 @@ def describe_row_op(i, r, factor):
         return f"R{i + 1} ← R{i + 1} - {factor_frac} R{r + 1}"
 
 
-def highlight_pivot_positions(pivot_positions):
-    def highlight(data):
+def highlight_pivot_positions(pivot_positions: List[Tuple[int, int]]) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    def highlight(data: pd.DataFrame) -> pd.DataFrame:
         styles = pd.DataFrame('', index=data.index, columns=data.columns)
         for r, c in pivot_positions:
             if r in data.index and c in data.columns:
@@ -50,7 +51,7 @@ def highlight_pivot_positions(pivot_positions):
     return highlight
 
 
-def image_to_data_url(img):
+def image_to_data_url(img: Image.Image) -> str:
     buffered = BytesIO()
     img.save(buffered, format="PNG")
     encoded = base64.b64encode(buffered.getvalue()).decode()
@@ -59,24 +60,24 @@ def image_to_data_url(img):
 
 # === LLM Extraction ===
 
-def extract_matrix_from_image(image):
+def extract_matrix_from_image(image: Image.Image) -> List[List[float]]:
     try:
         data_url = image_to_data_url(image)
         response = openai.ChatCompletion.create(
             model="gpt-4.1-mini",
             messages=[
                 {
-                "role": "system",
-                "content": (
-                    "You are an expert at extracting numerical data from images of mathematical problems.\n"
-                    "Your task is to return the numerical data as a matrix in JSON format: {\"matrix\": [[...]]}.\n"
-                    "If the image shows a system of equations with both a matrix A and a vector b, combine them into a single augmented matrix [A | b].\n"
-                    "If the image shows multiple vectors (e.g. x₁, x₂, x₃) or matrices side-by-side, stack them as columns of a single matrix.\n"
-                    "Preserve ALL rows exactly as shown. For instance, if the image visually has 5 rows, your output must have 5 rows.\n"
-                    "Do not omit, reorder, or guess fewer rows than appear.\n"
-                    "Output only valid JSON, with no extra text or explanation or json .\n"
-                    "Do not wrap the json codes in JSON markers.\n"
-                )
+                    "role": "system",
+                    "content": (
+                        "You are an expert at extracting numerical data from images of mathematical problems.\n"
+                        "Your task is to return the numerical data as a matrix in JSON format: {\"matrix\": [[...]]}.\n"
+                        "If the image shows a system of equations with both a matrix A and a vector b, combine them into a single augmented matrix [A | b].\n"
+                        "If the image shows multiple vectors (e.g. x₁, x₂, x₃) or matrices side-by-side, stack them as columns of a single matrix.\n"
+                        "Preserve ALL rows exactly as shown. For instance, if the image visually has 5 rows, your output must have 5 rows.\n"
+                        "Do not omit, reorder, or guess fewer rows than appear.\n"
+                        "Output only valid JSON, with no extra text or explanation or json .\n"
+                        "Do not wrap the json codes in JSON markers.\n"
+                    )
                 },
                 {
                     "role": "user",
@@ -106,10 +107,11 @@ def extract_matrix_from_image(image):
 
 # === RREF Algorithm ===
 
-def gaussian_elimination_steps(matrix):
+def gaussian_elimination_steps(matrix: List[List[float]]) -> Tuple[
+    List[dict], List[List[float]], List[Tuple[int, int]]]:
     A = copy.deepcopy(matrix)
-    steps = []
-    pivot_positions = []
+    steps: List[dict] = []
+    pivot_positions: List[Tuple[int, int]] = []
     rows, cols = len(A), len(A[0])
     r = 0
 
@@ -150,11 +152,11 @@ def gaussian_elimination_steps(matrix):
 
 # === UI Helpers ===
 
-def display_uploaded_image(image):
+def display_uploaded_image(image: Image.Image) -> None:
     st.image(image, caption="Uploaded Image", use_container_width=True)
 
 
-def render_matrix(matrix, pivot_positions):
+def render_matrix(matrix: List[List[float]], pivot_positions: List[Tuple[int, int]]) -> None:
     df = pd.DataFrame(matrix)
     styled = df.style \
         .format(format_fraction) \
@@ -164,7 +166,7 @@ def render_matrix(matrix, pivot_positions):
     st.markdown(styled.to_html(), unsafe_allow_html=True)
 
 
-def run_rref_workflow(matrix):
+def run_rref_workflow(matrix: List[List[float]]) -> None:
     steps, rref, pivot_positions = gaussian_elimination_steps(matrix)
     st.subheader("Step-by-Step RREF Process:")
     for step in steps:
@@ -176,14 +178,14 @@ def run_rref_workflow(matrix):
 
 # === Main App ===
 
-def main():
+def main() -> None:
     load_openai_key()
 
     st.title("Matrix RREF Converter with Vision + LLM")
     st.write("Upload an image of a matrix. The app uses OpenAI Vision to extract it and compute RREF.")
 
     uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"])
-    if uploaded_file:
+    if uploaded_file is not None:
         image = Image.open(uploaded_file)
         display_uploaded_image(image)
 
