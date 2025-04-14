@@ -63,7 +63,7 @@ def extract_matrix_from_image(image):
     try:
         data_url = image_to_data_url(image)
         response = openai.ChatCompletion.create(
-            model="gpt-4-turbo",
+            model="gpt-4.1-mini",
             messages=[
                 {
                 "role": "system",
@@ -74,7 +74,8 @@ def extract_matrix_from_image(image):
                     "If the image shows multiple vectors (e.g. x₁, x₂, x₃) or matrices side-by-side, stack them as columns of a single matrix.\n"
                     "Preserve ALL rows exactly as shown. For instance, if the image visually has 5 rows, your output must have 5 rows.\n"
                     "Do not omit, reorder, or guess fewer rows than appear.\n"
-                    "Output only valid JSON, with no extra text or explanation.\n"
+                    "Output only valid JSON, with no extra text or explanation or json .\n"
+                    "Do not wrap the json codes in JSON markers.\n"
                 )
                 },
                 {
@@ -87,15 +88,17 @@ def extract_matrix_from_image(image):
                 }
             ],
             max_tokens=500,
-            temperature=0
+            temperature=1.0,
+            top_p=1.0
         )
         reply_content = response['choices'][0]['message']['content'].strip()
         # print(reply_content)
-        if not reply_content.startswith('{'):
-            raise ValueError("LLM returned non-JSON content.")
-        data = json.loads(reply_content)
+        try:
+            data = json.loads(reply_content)
+        except Exception as e:
+            raise ValueError(f"LLM returned non-JSON content: {str(e)}.\n{reply_content}")
         if "matrix" not in data:
-            raise ValueError("Key 'matrix' not found.")
+            raise ValueError(f"Key 'matrix' not found.\n{reply_content}")
         return data["matrix"]
     except Exception as e:
         raise ValueError(f"LLM parsing failed: {str(e)}")
