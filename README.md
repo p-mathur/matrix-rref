@@ -5,13 +5,13 @@ A Streamlit web app that computes the **Reduced Row Echelon Form (RREF)** of a m
 ## Features
 
 - Upload images of matrices (handwritten or printed)
-- Automatically detects and extracts matrix data using GPT-4 Vision
+- Automatically detects and extracts matrix data using GPT 4.1 mini
 - Converts to RREF with step-by-step transformations
 - Displays matrices with fraction formatting and pivot highlights
 
 ## Setup
 ```bash
-git clone https://github.com/your-username/matrix-rref.git
+git clone https://github.com/p-mathur/matrix-rref.git
 cd matrix-rref
 python3 -m venv .venv
 source .venv/bin/activate  # or .venv\Scripts\activate on Windows
